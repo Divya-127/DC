@@ -22,6 +22,8 @@ public class ServerImpl extends UnicastRemoteObject implements ServerInterface {
 
     ArrayList<User> userClients = new ArrayList<>();
     HashMap<String, Item> items = new HashMap<>();
+    HashMap<String, ArrayList<String> > waitList = new HashMap<>();
+    HashMap<String, ArrayList<String> > borrowedItems = new HashMap<>();
 
     protected ServerImpl() throws RemoteException {
         super();
@@ -108,6 +110,168 @@ public class ServerImpl extends UnicastRemoteObject implements ServerInterface {
                     result = itemID + " " + Integer.toString(availableNum);
                 }
             }
+        }
+        return result;
+    }
+
+    @Override
+    public String borrowItem (String campusName, String userID, String itemID, int numberOfDays) {
+        String result = "";
+        String command = "borrowItem(" + userID + "," + itemID + "," + numberOfDays + ")";
+
+        for(int i = 0; i < userClients.size();i ++) {
+            if (userClients.get(i).userID.equals(userID)) {
+                try {
+                    if (campusName.equals(Campus)) {
+                        result = borrowLocal(userID, itemID);
+                    } else if (campusName.equals("CON")) {
+                        int serverport = 2234;
+                        result = UDPRequest.UDPborrowItem(command, serverport);
+                    } else if (campusName.equals("MCG")) {
+                        int serverport = 2235;
+                        result = UDPRequest.UDPborrowItem(command, serverport);
+                    } else if (campusName.equals("MON")) {
+                        int serverport = 2236;
+                        result = UDPRequest.UDPborrowItem(command, serverport);
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+
+                if(!campusName.equals(Campus)) {
+                    if (result.isEmpty()) {
+                        String log = " Server borrow item ["+itemID+"] for user ["+userID+"] from server ["+campusName+"] failed";
+                        System.out.println(log);
+                        try {
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    } else {
+                        String log2 = " Server borrow item ["+itemID+"] for user ["+userID+"] from server ["+campusName+"] success";
+                        System.out.println(log2);
+                        try {
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }
+
+            }
+        }
+        return result;
+    }
+
+    @Override
+    public String waitInQueue(String campusName, String userID, String itemID) {
+        String result = " ";
+        String command = "waitInQueue(" + userID + "," + itemID + ")";
+        for (User temp : userClients) {
+            if (temp.userID.equals(userID)) {
+                try {
+                    if (campusName.equals(Campus)) {
+                        result = waitInLocal(userID, itemID);
+                    } else if (campusName.equals("CON")) {
+                        int serverport = 2234;
+                        result = UDPRequest.UDPwaitInQueue(command, serverport);
+                    } else if (campusName.equals("MCG")) {
+                        int serverport = 2235;
+                        result = UDPRequest.UDPwaitInQueue(command, serverport);
+                    } else if (campusName.equals("MON")) {
+                        int serverport = 2236;
+                        result = UDPRequest.UDPwaitInQueue(command, serverport);
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+        return result;
+    }
+
+    public String borrowLocal(String userID, String itemID){
+        String result = "";
+        String failReason = "";
+        int flag = 0;
+        String userCampus = userID.substring(0,3);
+        synchronized (this){
+            if(!userCampus.equals(Campus)){
+                for(HashMap.Entry<String, ArrayList<String>> entry : borrowedItems.entrySet()){
+                    if(entry.getValue().contains(userID)){
+                        flag = 1;
+                        failReason = "User can only borrow 1 item from other libraries";
+                    }
+                }
+            }
+            if(flag == 0) {
+                if (items.get(itemID).num > 0) {
+                    if (!borrowedItems.containsKey(itemID)) {
+                        ArrayList<String> newBorrowedUser = new ArrayList<>();
+                        newBorrowedUser.add(userID);
+                        borrowedItems.put(itemID, newBorrowedUser);
+                        items.get(itemID).num--;
+                    } else {
+                        if (!borrowedItems.get(itemID).contains(userID)) {
+                            borrowedItems.get(itemID).add(userID);
+                            items.get(itemID).num--;
+                        }
+                    }
+                    result = itemID;
+                }else{
+                    failReason = "No item left";
+                }
+            }
+            if (result.isEmpty()) {
+                String log = " User [" + userID + "] borrow item ["+itemID+"] failed: ";
+                System.out.println(log);
+                try {
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            } else {
+                String log2 = " User [" + userID + "] borrow item ["+itemID+"] success.";
+                System.out.println(log2);
+                try {
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+        return result;
+    }
+
+    public String waitInLocal(String userID, String itemID){
+        String result = " ";
+        synchronized (this) {
+
+            if(!waitList.containsKey(itemID)){
+                ArrayList<String> users = new ArrayList<>();
+                users.add(userID);
+                waitList.put(itemID,users);
+                result = String.valueOf(waitList.get(itemID).indexOf(userID)+1);
+            }else{
+                if(!waitList.get(itemID).contains(userID)){
+                    waitList.get(itemID).add(userID);
+                    result = String.valueOf(waitList.get(itemID).indexOf(userID)+1);
+                }
+            }
+
+            if (result.equals(" ")) {
+                String log = " Server add user [" + userID + "] in wait queue of item ["+itemID+ "] failed.";
+                System.out.println(log);
+                try {
+                   } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            } else {
+                String log1 = " Server add user [" + userID + "] in wait queue of " +
+                        "item ["+itemID+ "] at position [" +result+"] success.";
+                System.out.println(log1);
+                try {
+                   } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+
         }
         return result;
     }

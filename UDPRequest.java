@@ -47,5 +47,17 @@ public class UDPRequest {
         return result;
 
     }
+
+    public static String UDPborrowItem(String command,int serverPort) throws SocketException{
+        String result = "";
+        result = request(command, serverPort);
+        return result;
+    }
+
+    public static String UDPwaitInQueue(String command,int serverPort) throws SocketException{
+        String result = "";
+        result = request(command, serverPort);
+        return result;
+    }
     
 }

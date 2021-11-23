@@ -14,6 +14,7 @@ def getPortNumber(campus):
     elif campus == "MON":
         portNum = "1237"
     elif campus == "MCG":
+        print(serverCounts)
         if len(serverCounts) == 0:
             portNum = "1235"
             serverCounts[portNum] = 1

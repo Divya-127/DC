@@ -1,5 +1,6 @@
 import java.io.BufferedReader;
 import java.io.DataInputStream;
+import java.io.FileOutputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.Socket;
@@ -12,16 +13,24 @@ import java.util.Scanner;
 
 public class UserClient {
 
+    static FileOutputStream fw;
+    static Monitor m;
+    static Writer w;
     public static void main(String[] args) {
         try {
             int RMIPort;
             String hostName;
             String portNum = " ";
 
+            fw = new FileOutputStream("file.txt");
+            m = new Monitor(fw);
             System.out.println("Enter userID:");
             Scanner Id = new Scanner(System.in);
             String userID = Id.nextLine();
             String campus = userID.substring(0,3);
+
+            w = new Writer(m,userID);
+            w.start();
 
             if(userID.length() != 8) {
                 System.out.println("Invalid UserID");
@@ -54,7 +63,8 @@ public class UserClient {
             conn.disconnect();
 
             System.out.println(getFormatDate() + " " + userID + " attempt to connect campus " + campus + " on port number " + portNum);
-            
+                        
+
             InputStreamReader is = new InputStreamReader(System.in);
             br = new BufferedReader(is);
 
@@ -66,7 +76,8 @@ public class UserClient {
 
             if(h.userLogin(userID)){
                 System.out.println("Log in successfully");
-                
+                w = new Writer(m,"Log in succesful"+userID+"\n");
+                w.start();    
                 Socket s = new Socket("localhost", 50555);
                 DataInputStream dis = new DataInputStream(s.getInputStream());
                 SimpleDateFormat time_pattern = new SimpleDateFormat("HH:mm:ss.SSSSSS");
@@ -93,14 +104,16 @@ public class UserClient {
             }
             else {
                 System.out.println("Log in failed");
+                w = new Writer(m,"Log in Failed"+userID+"\n");
+                w.start();
             }
 
             while(true) {
                 System.out.println(" ");
                 System.out.println("Please Select An Operation: ");
                 System.out.println("1: FindItem");
-                System.out.println("2: Exit" + "\n");
-
+                System.out.println("2: Borrow" + "\n");
+                System.out.println("3: Exit"+"\n");
                 Scanner sc = new Scanner(System.in);
                 int input = sc.nextInt();
 
@@ -120,9 +133,42 @@ public class UserClient {
                         }
                         break;        
                     case 2:
-                        System.exit(2);       
-                    default:
-                        break;
+                        System.out.println("Enter The ItemID");
+                        Scanner inputS = new Scanner(System.in);
+                        String itemID = inputS.nextLine();
+                        System.out.println("Enter The NumberOfDays");
+                        Scanner input2 = new Scanner(System.in);
+                        int days = input2.nextInt();
+                        String itemCampus = itemID.substring(0,3);
+                        String userAction = " User ["+ userID + "] borrow item ["+itemID+"] for ["+days+"] days ---> ";
+                        String result = h.borrowItem(itemCampus, userID, itemID, days);
+                        if(!result.isEmpty()){
+                            System.out.println(userAction+"Success.");
+                            w = new Writer(m,userAction+"\n");
+                            w.start();
+                        }else{
+                            System.out.println(userAction+"Failed.");
+                            w = new Writer(m,userAction+"Failed\n");
+                            w.start();
+                            System.out.println("Do You Want To Wait In The Queue?(Y/N)");
+                            Scanner input5 = new Scanner(System.in);
+                            String response = input5.nextLine();
+                            String userAction2 = " User ["+ userID + "] wait in queue for item ["+itemID+"] ---> ";
+                            if(response.equalsIgnoreCase("y")){
+                                String waitCampus = itemID.substring(0,3);
+                                String waitResult = h.waitInQueue(waitCampus, userID, itemID);
+                                if(waitResult.equals(" ")){
+                                    System.out.println(userAction2+"Failed.");
+                                }else{
+                                    System.out.println(userAction2+"Success. Position In Queue :"+waitResult);
+                                }
+                            }
+                        }
+                        case 3:
+                            System.exit(3);
+                            break;                    
+                        default:
+                                break;
                 }
             }
         }
